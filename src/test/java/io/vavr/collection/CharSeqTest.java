@@ -32,7 +32,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static io.vavr.OutputTester.*;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -3341,7 +3340,7 @@ public class CharSeqTest {
 
     @Test
     public void shouldTransform() {
-        final String transformed = CharSeq.of('0').transform(v -> String.valueOf(v.get()));
+        final String transformed = CharSeq.of('0').transform(v -> String.valueOf(v.head()));
         assertThat(transformed).isEqualTo("0");
     }
 

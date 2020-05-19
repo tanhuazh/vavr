@@ -25,6 +25,7 @@ import org.junit.Test;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.Collections;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
@@ -669,6 +670,19 @@ public abstract class AbstractTraversableTest extends AbstractValueTest {
         assertThat(empty.dropWhile(ignored -> true)).isSameAs(empty);
     }
 
+    // -- exists
+
+    @Test
+    public void shouldBeAwareOfExistingElement() {
+        final Traversable<Integer> testee = of(1, 2);
+        assertThat(testee.exists(i -> i == 2)).isTrue();
+    }
+
+    @Test
+    public void shouldBeAwareOfNonExistingElement() {
+        assertThat(this.<Integer> empty().exists(i -> i == 1)).isFalse();
+    }
+
     // -- existsUnique
 
     @Test
@@ -846,6 +860,28 @@ public abstract class AbstractTraversableTest extends AbstractValueTest {
         assertThat(of("a", "b", "c").foldRight("!", (x, xs) -> x + xs)).isEqualTo("abc!");
     }
 
+    // -- forAll
+
+    @Test
+    public void shouldBeAwareOfPropertyThatHoldsForAll() {
+        assertThat(of(2, 4).forAll(i -> i % 2 == 0)).isTrue();
+    }
+
+    @Test
+    public void shouldBeAwareOfPropertyThatNotHoldsForAll() {
+        assertThat(of(1, 2).forAll(i -> i % 2 == 0)).isFalse();
+    }
+
+    // -- forEach
+
+    @Test
+    public void shouldPerformsActionOnEachElement() {
+        final int[] consumer = new int[1];
+        final Value<Integer> value = of(1, 2, 3);
+        value.forEach(i -> consumer[0] += i);
+        assertThat(consumer[0]).isEqualTo(6);
+    }
+
     // -- forEachWithIndex
 
     @Test
@@ -979,7 +1015,7 @@ public abstract class AbstractTraversableTest extends AbstractValueTest {
 
     @Test(expected = UnsupportedOperationException.class)
     public void shouldThrowWhenInitOfNil() {
-        empty().init().get();
+        empty().init().head();
     }
 
     @Test
@@ -1051,78 +1087,6 @@ public abstract class AbstractTraversableTest extends AbstractValueTest {
             iterator.next();
             iterator.next();
         }).isInstanceOf(NoSuchElementException.class);
-    }
-
-    // -- mkString()
-
-    @Test
-    public void shouldMkStringNil() {
-        assertThat(empty().mkString()).isEqualTo("");
-    }
-
-    @Test
-    public void shouldMkStringNonNil() {
-        assertThat(of('a', 'b', 'c').mkString()).isEqualTo("abc");
-    }
-
-    // -- mkString(delimiter)
-
-    @Test
-    public void shouldMkStringWithDelimiterNil() {
-        assertThat(empty().mkString(",")).isEqualTo("");
-    }
-
-    @Test
-    public void shouldMkStringWithDelimiterNonNil() {
-        assertThat(of('a', 'b', 'c').mkString(",")).isEqualTo("a,b,c");
-    }
-
-    // -- mkString(delimiter, prefix, suffix)
-
-    @Test
-    public void shouldMkStringWithDelimiterAndPrefixAndSuffixNil() {
-        assertThat(empty().mkString("[", ",", "]")).isEqualTo("[]");
-    }
-
-    @Test
-    public void shouldMkStringWithDelimiterAndPrefixAndSuffixNonNil() {
-        assertThat(of('a', 'b', 'c').mkString("[", ",", "]")).isEqualTo("[a,b,c]");
-    }
-
-    // -- mkCharSeq()
-
-    @Test
-    public void shouldMkCharSeqNil() {
-        assertThat(empty().mkCharSeq()).isEqualTo(CharSeq.empty());
-    }
-
-    @Test
-    public void shouldMkCharSeqNonNil() {
-        assertThat(of('a', 'b', 'c').mkCharSeq()).isEqualTo(CharSeq.of("abc"));
-    }
-
-    // -- mkCharSeq(delimiter)
-
-    @Test
-    public void shouldMkCharSeqWithDelimiterNil() {
-        assertThat(empty().mkCharSeq(",")).isEqualTo(CharSeq.empty());
-    }
-
-    @Test
-    public void shouldMkCharSeqWithDelimiterNonNil() {
-        assertThat(of('a', 'b', 'c').mkCharSeq(",")).isEqualTo(CharSeq.of("a,b,c"));
-    }
-
-    // -- mkCharSeq(delimiter, prefix, suffix)
-
-    @Test
-    public void shouldMkCharSeqWithDelimiterAndPrefixAndSuffixNil() {
-        assertThat(empty().mkCharSeq("[", ",", "]")).isEqualTo(CharSeq.of("[]"));
-    }
-
-    @Test
-    public void shouldMkCharSeqWithDelimiterAndPrefixAndSuffixNonNil() {
-        assertThat(of('a', 'b', 'c').mkCharSeq("[", ",", "]")).isEqualTo(CharSeq.of("[a,b,c]"));
     }
 
     // -- last
@@ -1469,6 +1433,78 @@ public abstract class AbstractTraversableTest extends AbstractValueTest {
         assertThat(cnt[0]).isEqualTo(3);
     }
 
+    // -- mkCharSeq()
+
+    @Test
+    public void shouldMkCharSeqNil() {
+        assertThat(empty().mkCharSeq()).isEqualTo(CharSeq.empty());
+    }
+
+    @Test
+    public void shouldMkCharSeqNonNil() {
+        assertThat(of('a', 'b', 'c').mkCharSeq()).isEqualTo(CharSeq.of("abc"));
+    }
+
+    // -- mkCharSeq(delimiter)
+
+    @Test
+    public void shouldMkCharSeqWithDelimiterNil() {
+        assertThat(empty().mkCharSeq(",")).isEqualTo(CharSeq.empty());
+    }
+
+    @Test
+    public void shouldMkCharSeqWithDelimiterNonNil() {
+        assertThat(of('a', 'b', 'c').mkCharSeq(",")).isEqualTo(CharSeq.of("a,b,c"));
+    }
+
+    // -- mkCharSeq(delimiter, prefix, suffix)
+
+    @Test
+    public void shouldMkCharSeqWithDelimiterAndPrefixAndSuffixNil() {
+        assertThat(empty().mkCharSeq("[", ",", "]")).isEqualTo(CharSeq.of("[]"));
+    }
+
+    @Test
+    public void shouldMkCharSeqWithDelimiterAndPrefixAndSuffixNonNil() {
+        assertThat(of('a', 'b', 'c').mkCharSeq("[", ",", "]")).isEqualTo(CharSeq.of("[a,b,c]"));
+    }
+
+    // -- mkString()
+
+    @Test
+    public void shouldMkStringNil() {
+        assertThat(empty().mkString()).isEqualTo("");
+    }
+
+    @Test
+    public void shouldMkStringNonNil() {
+        assertThat(of('a', 'b', 'c').mkString()).isEqualTo("abc");
+    }
+
+    // -- mkString(delimiter)
+
+    @Test
+    public void shouldMkStringWithDelimiterNil() {
+        assertThat(empty().mkString(",")).isEqualTo("");
+    }
+
+    @Test
+    public void shouldMkStringWithDelimiterNonNil() {
+        assertThat(of('a', 'b', 'c').mkString(",")).isEqualTo("a,b,c");
+    }
+
+    // -- mkString(delimiter, prefix, suffix)
+
+    @Test
+    public void shouldMkStringWithDelimiterAndPrefixAndSuffixNil() {
+        assertThat(empty().mkString("[", ",", "]")).isEqualTo("[]");
+    }
+
+    @Test
+    public void shouldMkStringWithDelimiterAndPrefixAndSuffixNonNil() {
+        assertThat(of('a', 'b', 'c').mkString("[", ",", "]")).isEqualTo("[a,b,c]");
+    }
+
     // -- nonEmpty
 
     @Test
@@ -1540,6 +1576,37 @@ public abstract class AbstractTraversableTest extends AbstractValueTest {
     public void shouldPartitionIntsInOddAndEvenHavingOnlyEvenNumbers() {
         assertThat(of(2, 4).partition(i -> i % 2 != 0)).isEqualTo(Tuple.of(empty(), of(2, 4)));
     }
+
+    // -- peek
+
+    @Test
+    public void shouldPeekNil() {
+        assertThat(empty().peek(t -> {})).isEqualTo(empty());
+    }
+
+    @Test
+    public void shouldPeekNonNilPerformingNoAction() {
+        assertThat(of(1).peek(t -> {})).isEqualTo(of(1));
+    }
+
+    @Test
+    public void shouldPeekSingleValuePerformingAnAction() {
+        final int[] effect = { 0 };
+        final Value<Integer> actual = of(1).peek(i -> effect[0] = i);
+        assertThat(actual).isEqualTo(of(1));
+        assertThat(effect[0]).isEqualTo(1);
+    }
+
+    @Test
+    public void shouldPeekNonNilPerformingAnAction() {
+        final int[] effect = { 0 };
+        final Value<Integer> actual = of(1, 2, 3).peek(i -> effect[0] = i);
+        assertThat(actual).isEqualTo(of(1, 2, 3)); // traverses all elements in the lazy case
+        assertThat(effect[0]).isEqualTo(getPeekNonNilPerformingAnAction());
+    }
+
+    // returns the peek result of the specific Traversable implementation
+    abstract protected int getPeekNonNilPerformingAnAction();
 
     // -- product
 
@@ -2511,26 +2578,309 @@ public abstract class AbstractTraversableTest extends AbstractValueTest {
         assertThat(of(1, 2, 2, 3).toJavaSet()).isEqualTo(expected);
     }
 
-    // toTree
+    // -- Conversions toXxx()
+
+    @Test
+    public void shouldConvertToArray() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final Array<Integer> array = testee.toArray();
+        assertThat(array).isEqualTo(Array.of(1, 2, 3));
+    }
+
+    @Test
+    public void shouldConvertToCharSeq() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final CharSeq charSeq = testee.toCharSeq();
+        final CharSeq expected = CharSeq.of(of(1, 2, 3).iterator().mkString());
+        assertThat(charSeq).isEqualTo(expected);
+    }
+
+    @Test
+    public void shouldConvertToList() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final io.vavr.collection.List<Integer> list = testee.toList();
+        assertThat(list).isEqualTo(io.vavr.collection.List.of(1, 2, 3));
+    }
+
+    @Test
+    public void shouldConvertToHashMap() {
+        final Traversable<Integer> testee = of(9, 5, 1);
+        final io.vavr.collection.Map<Integer, Integer> map = testee.toMap(i -> Tuple.of(i, i));
+        assertThat(map).isEqualTo(io.vavr.collection.HashMap.of(1, 1, 5, 5, 9, 9));
+    }
+
+    @Test
+    public void shouldConvertToHashMapTwoFunctions() {
+        final Traversable<Integer> testee = of(9, 5, 1);
+        final io.vavr.collection.Map<Integer, Integer> map = testee.toMap(Function.identity(), Function.identity());
+        assertThat(map).isEqualTo(io.vavr.collection.HashMap.of(1, 1, 5, 5, 9, 9));
+    }
+
+    @Test
+    public void shouldConvertToLinkedMap() {
+        final Traversable<Integer> testee = of(1, 5, 9);
+        final io.vavr.collection.Map<Integer, Integer> map = testee.toLinkedMap(i -> Tuple.of(i, i));
+        assertThat(map).isEqualTo(io.vavr.collection.LinkedHashMap.of(1, 1, 5, 5, 9, 9));
+    }
+
+    @Test
+    public void shouldConvertToLinkedMapTwoFunctions() {
+        final Traversable<Integer> testee = of(1, 5, 9);
+        final io.vavr.collection.Map<Integer, Integer> map = testee.toLinkedMap(Function.identity(), Function.identity());
+        assertThat(map).isEqualTo(io.vavr.collection.LinkedHashMap.of(1, 1, 5, 5, 9, 9));
+    }
+
+    @Test
+    public void shouldConvertToSortedMap() {
+        final Traversable<Integer> testee = of(9, 5, 1);
+        final io.vavr.collection.SortedMap<Integer, Integer> map = testee.toSortedMap(i -> Tuple.of(i, i));
+        assertThat(map).isEqualTo(io.vavr.collection.TreeMap.of(1, 1, 5, 5, 9, 9));
+    }
+
+    @Test
+    public void shouldConvertToSortedMapTwoFunctions() {
+        final Traversable<Integer> testee = of(9, 5, 1);
+        final io.vavr.collection.SortedMap<Integer, Integer> map = testee.toSortedMap(Function.identity(), Function.identity());
+        assertThat(map).isEqualTo(io.vavr.collection.TreeMap.of(1, 1, 5, 5, 9, 9));
+    }
+
+    @Test
+    public void shouldConvertToSortedMapWithComparator() {
+        final Traversable<Integer> testee = of(9, 5, 1);
+        final Comparator<Integer> comparator = ((Comparator<Integer>) Integer::compareTo).reversed();
+        final io.vavr.collection.SortedMap<Integer, Integer> map = testee.toSortedMap(comparator, i -> Tuple.of(i, i));
+        assertThat(map).isEqualTo(io.vavr.collection.TreeMap.of(comparator, 9, 9, 5, 5, 1, 1));
+    }
+
+    @Test
+    public void shouldConvertToSortedMapTwoFunctionsWithComparator() {
+        final Traversable<Integer> testee = of(9, 5, 1);
+        final Comparator<Integer> comparator = ((Comparator<Integer>) Integer::compareTo).reversed();
+        final io.vavr.collection.SortedMap<Integer, Integer> map = testee.toSortedMap(comparator, Function.identity(), Function.identity());
+        assertThat(map).isEqualTo(io.vavr.collection.TreeMap.of(comparator, 9, 9, 5, 5, 1, 1));
+    }
+
+    @Test
+    public void shouldConvertToQueue() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final io.vavr.collection.Queue<Integer> queue = testee.toQueue();
+        assertThat(queue).isEqualTo(io.vavr.collection.Queue.of(1, 2, 3));
+    }
+
+    @Test
+    public void shouldConvertToPriorityQueueUsingImplicitComparator() {
+        final Traversable<Integer> testee = of(1, 3, 2);
+        final io.vavr.collection.PriorityQueue<Integer> queue = testee.toPriorityQueue();
+        assertThat(queue).isEqualTo(io.vavr.collection.PriorityQueue.of(1, 2, 3));
+    }
+
+    @Test
+    public void shouldConvertToPriorityQueueUsingExplicitComparator() {
+        final Comparator<Integer> comparator = Comparator.naturalOrder();
+        final Traversable<Integer> testee = of(1, 3, 2);
+        final io.vavr.collection.PriorityQueue<Integer> queue = testee.toPriorityQueue(comparator);
+        assertThat(queue).isEqualTo(io.vavr.collection.PriorityQueue.of(comparator, 1, 2, 3));
+    }
+
+    @Test
+    public void shouldConvertToPriorityQueueUsingSerializableComparator() {
+        final Traversable<Integer> testee = of(1, 3, 2);
+        final io.vavr.collection.PriorityQueue<Integer> queue = testee.toPriorityQueue();
+        final io.vavr.collection.PriorityQueue<Integer> actual = Serializables.deserialize(Serializables.serialize(queue));
+        assertThat(actual).isEqualTo(queue);
+    }
+
+    @Test
+    public void shouldConvertToSet() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final io.vavr.collection.Set<Integer> set = testee.toSet();
+        assertThat(set).isEqualTo(io.vavr.collection.HashSet.of(1, 2, 3));
+    }
+
+    @Test
+    public void shouldConvertToLinkedSet() {
+        final Traversable<Integer> testee = of(3, 7, 1, 15, 0);
+        final io.vavr.collection.Set<Integer> set = testee.toLinkedSet();
+        final io.vavr.collection.List<Integer> itemsInOrder;
+        if (testee instanceof Traversable && !((Traversable) testee).isTraversableAgain()) {
+            itemsInOrder = io.vavr.collection.List.of(3, 7, 1, 15, 0);
+        } else {
+            itemsInOrder = testee.toList();
+        }
+        assertThat(set).isEqualTo(itemsInOrder.foldLeft(io.vavr.collection.LinkedHashSet.empty(), io.vavr.collection.LinkedHashSet::add));
+    }
+
+    @Test
+    public void shouldConvertToSortedSetWithoutComparatorOnComparable() {
+        final Traversable<Integer> testee = of(3, 7, 1, 15, 0);
+        final io.vavr.collection.SortedSet<Integer> set = testee.toSortedSet();
+        assertThat(set).isEqualTo(io.vavr.collection.TreeSet.of(0, 1, 3, 7, 15));
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void shouldThrowOnConvertToSortedSetWithoutComparatorOnNonComparable() {
+        final Traversable<Object> testee = of(new Object(), new Object());
+        final io.vavr.collection.SortedSet<Object> set = testee.toSortedSet();
+    }
+
+    @Test
+    public void shouldConvertToSortedSet() {
+        final Traversable<Integer> testee = of(3, 7, 1, 15, 0);
+        final Comparator<Integer> comparator = Comparator.comparingInt(Integer::bitCount);
+        final io.vavr.collection.SortedSet<Integer> set = testee.toSortedSet(comparator.reversed());
+        assertThat(set).isEqualTo(io.vavr.collection.TreeSet.of(comparator.reversed(), 0, 1, 3, 7, 15));
+    }
+
+    @Test
+    public void shouldConvertToSortedSetUsingSerializableComparator() {
+        final Traversable<Integer> testee = of(1, 3, 2);
+        final io.vavr.collection.SortedSet<Integer> set = testee.toSortedSet();
+        final io.vavr.collection.SortedSet<Integer> actual = Serializables.deserialize(Serializables.serialize(set));
+        assertThat(actual).isEqualTo(set);
+    }
+
+    @Test
+    public void shouldConvertToStream() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final Stream<Integer> stream = testee.toStream();
+        assertThat(stream).isEqualTo(Stream.of(1, 2, 3));
+    }
+
+    @Test
+    public void shouldConvertToVector() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final io.vavr.collection.Vector<Integer> vector = testee.toVector();
+        assertThat(vector).isEqualTo(io.vavr.collection.Vector.of(1, 2, 3));
+    }
+
+    @Test
+    public void shouldConvertToJavaArray() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final Object[] ints = testee.toJavaArray();
+        assertThat(ints).isEqualTo(new int[] { 1, 2, 3 });
+    }
+
+    @Test
+    public void shouldConvertToJavaArrayWithFactory() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final Integer[] ints = testee.toJavaArray(Integer[]::new);
+        assertThat(ints).containsOnly(1, 2, 3);
+    }
+
+    @Test
+    public void shouldConvertToJavaCollectionUsingSupplier() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final java.util.List<Integer> ints = testee.toJavaCollection(ArrayList::new);
+        assertThat(ints).isEqualTo(Arrays.asList(1, 2, 3));
+    }
+
+    @Test
+    public void shouldConvertToJavaList() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final java.util.List<Integer> list = testee.toJavaList();
+        assertThat(list).isEqualTo(Arrays.asList(1, 2, 3));
+    }
+
+    @Test
+    public void shouldConvertToJavaListUsingSupplier() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final java.util.List<Integer> ints = testee.toJavaList(ArrayList::new);
+        assertThat(ints).isEqualTo(Arrays.asList(1, 2, 3));
+    }
+
+    @Test
+    public void shouldConvertToJavaMapUsingFunction() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final java.util.Map<Integer, Integer> map = testee.toJavaMap(v -> Tuple.of(v, v));
+        assertThat(map).isEqualTo(javaMap(1, 1, 2, 2, 3, 3));
+    }
+
+    @Test
+    public void shouldConvertToJavaMapUsingSupplierAndFunction() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final java.util.Map<Integer, Integer> map = testee.toJavaMap(java.util.HashMap::new, i -> Tuple.of(i, i));
+        assertThat(map).isEqualTo(javaMap(1, 1, 2, 2, 3, 3));
+    }
+
+    @Test
+    public void shouldConvertToJavaMapUsingSupplierAndTwoFunction() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final java.util.Map<Integer, String> map = testee.toJavaMap(java.util.HashMap::new, Function.identity(), String::valueOf);
+        assertThat(map).isEqualTo(javaMap(1, "1", 2, "2", 3, "3"));
+    }
+
+    @Test
+    public void shouldConvertToJavaSet() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final java.util.Set<Integer> set = testee.toJavaSet();
+        assertThat(set).isEqualTo(javaSet(1, 2, 3));
+    }
+
+    @Test
+    public void shouldConvertToJavaSetUsingSupplier() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final java.util.Set<Integer> set = testee.toJavaSet(java.util.HashSet::new);
+        assertThat(set).isEqualTo(javaSet(1, 2, 3));
+    }
+
+    @Test
+    public void shouldConvertToJavaStream() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final java.util.stream.Stream<Integer> s1 = testee.toJavaStream();
+        final java.util.stream.Stream<Integer> s2 = java.util.stream.Stream.of(1, 2, 3);
+        assertThat(io.vavr.collection.List.ofAll(s1::iterator)).isEqualTo(io.vavr.collection.List.ofAll(s2::iterator));
+    }
+
+    @Test
+    public void shouldConvertToJavaParallelStream() {
+        final Traversable<Integer> testee = of(1, 2, 3);
+        final java.util.stream.Stream<Integer> s1 = testee.toJavaParallelStream();
+        assertThat(s1.isParallel()).isTrue();
+        final java.util.stream.Stream<Integer> s2 = java.util.stream.Stream.of(1, 2, 3);
+        assertThat(io.vavr.collection.List.ofAll(s1::iterator)).isEqualTo(io.vavr.collection.List.ofAll(s2::iterator));
+    }
+
+    // -- toTree
 
     @Test
     public void shouldConvertToTree() {
-        //Value["id:parent")]
-        final Traversable<String> value = of(
+        //Traversable["id:parent")]
+        final Traversable<String> testee = of(
                 "1:",
                 "2:1", "3:1",
                 "4:2", "5:2", "6:3",
                 "7:4", "8:6", "9:6"
         );
         final Seq<Tree<String>> roots = Tree
-                .build(value, s -> s.split(":")[0], s -> s.split(":").length == 1 ? null : s.split(":")[1])
+                .build(testee, s -> s.split(":")[0], s -> s.split(":").length == 1 ? null : s.split(":")[1])
                 .map(l -> l.map(s -> s.split(":")[0]));
         assertThat(roots).hasSize(1);
         final Tree<String> root = roots.head();
-        if (value.hasDefiniteSize()) {
-            assertThat(root).hasSameSizeAs(value);
+        if (testee.hasDefiniteSize()) {
+            assertThat(root).hasSameSizeAs(testee);
         }
         assertThat(root.toLispString()).isEqualTo("(1 (2 (4 7) 5) (3 (6 8 9)))");
+    }
+
+    @SuppressWarnings("unchecked")
+    static <K, V> java.util.Map<K, V> javaMap(Object... pairs) {
+        Objects.requireNonNull(pairs, "pairs is null");
+        if ((pairs.length & 1) != 0) {
+            throw new IllegalArgumentException("Odd length of key-value pairs list");
+        }
+        final java.util.Map<K, V> map = new java.util.HashMap<>();
+        for (int i = 0; i < pairs.length; i += 2) {
+            map.put((K) pairs[i], (V) pairs[i + 1]);
+        }
+        return map;
+    }
+
+    @SuppressWarnings("unchecked")
+    static <T> java.util.Set<T> javaSet(T... elements) {
+        Objects.requireNonNull(elements, "elements is null");
+        final java.util.Set<T> set = new java.util.HashSet<>();
+        Collections.addAll(set, elements);
+        return set;
     }
 
     // ++++++ OBJECT ++++++

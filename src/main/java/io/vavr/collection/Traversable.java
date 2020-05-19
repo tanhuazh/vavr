@@ -191,7 +191,7 @@ import java.util.stream.StreamSupport;
  * @param <T> Component type
  */
 @SuppressWarnings("deprecation")
-public interface Traversable<T> extends Iterable<T>, Foldable<T>, io.vavr.Value<T> {
+public interface Traversable<T> extends Iterable<T>, Value<T> {
 
     /**
      * Narrows a widened {@code Traversable<? extends T>} to {@code Traversable<T>}
@@ -632,7 +632,6 @@ public interface Traversable<T> extends Iterable<T>, Foldable<T>, io.vavr.Value<
      * @return a folded value
      * @throws NullPointerException if {@code combine} is null
      */
-    @Override
     default <U> U foldLeft(U zero, BiFunction<? super U, ? super T, ? extends U> combine) {
         Objects.requireNonNull(combine, "combine is null");
         U xs = zero;
@@ -870,7 +869,6 @@ public interface Traversable<T> extends Iterable<T>, Foldable<T>, io.vavr.Value<
      *
      * @return true, if this Traversable contains no elements, false otherwise.
      */
-    @Override
     default boolean isEmpty() {
         return length() == 0;
     }
@@ -971,7 +969,6 @@ public interface Traversable<T> extends Iterable<T>, Foldable<T>, io.vavr.Value<
      * @return a mapped Traversable
      * @throws NullPointerException if {@code mapper} is null
      */
-    @Override
     <U> Traversable<U> map(Function<? super T, ? extends U> mapper);
 
     /**

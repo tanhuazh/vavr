@@ -24,9 +24,8 @@ import io.vavr.collection.Seq;
 import io.vavr.collection.Vector;
 
 import java.io.Serializable;
-import java.util.NoSuchElementException;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -103,6 +102,12 @@ public abstract class Option<T> implements Iterable<T>, io.vavr.Value<T>, Serial
             vector = vector.append(value.get());
         }
         return Option.some(vector);
+    }
+
+    @Override
+    public Spliterator<T> spliterator() {
+        return Spliterators.spliterator(iterator(), isEmpty() ? 0 : 1,
+                Spliterator.IMMUTABLE | Spliterator.ORDERED | Spliterator.SIZED | Spliterator.SUBSIZED);
     }
 
     /**
@@ -301,8 +306,12 @@ public abstract class Option<T> implements Iterable<T>, io.vavr.Value<T>, Serial
      *
      * @return true, if this {@code Option} is empty, false otherwise
      */
-    @Override
     public abstract boolean isEmpty();
+
+    @Override
+    public final Iterator<T> iterator() {
+        return isEmpty() ? Iterator.empty() : Iterator.of(get());
+    }
 
     /**
      * Runs a Java Runnable passed as parameter if this {@code Option} is empty.
@@ -364,7 +373,6 @@ public abstract class Option<T> implements Iterable<T>, io.vavr.Value<T>, Serial
      * @return the value
      * @throws NoSuchElementException if this is a {@code None}.
      */
-    @Override
     public abstract T get();
 
     /**
@@ -383,9 +391,31 @@ public abstract class Option<T> implements Iterable<T>, io.vavr.Value<T>, Serial
      * @param other An alternative value
      * @return This value, if this Option is defined or the {@code other} value, if this Option is empty.
      */
-    @Override
     public final T getOrElse(T other) {
         return isEmpty() ? other : get();
+    }
+
+    /**
+     * Returns the value if this is a {@code Some}, otherwise {@code supplier.get()} is returned.
+     * <p>
+     * Please note, that the alternate value is lazily evaluated.
+     *
+     * <pre>{@code
+     * Supplier<Double> supplier = () -> 5.342;
+     *
+     * // = 1.2
+     * Option.of(1.2).getOrElse(supplier);
+     *
+     * // = 5.342
+     * Option.none().getOrElse(supplier);
+     * }</pre>
+     *
+     * @param supplier An alternative value supplier
+     * @return This value, if this Option is defined or the {@code other} value, if this Option is empty.
+     */
+    public final T getOrElse(Supplier<? extends T> supplier) {
+        Objects.requireNonNull(supplier, "supplier is null");
+        return isEmpty() ? supplier.get() : get();
     }
 
     /**
@@ -433,47 +463,6 @@ public abstract class Option<T> implements Iterable<T>, io.vavr.Value<T>, Serial
     }
 
     /**
-     * Returns this {@code Option} if this is defined, or {@code null} if it is empty.
-     *
-     * <pre>{@code
-     * // = Some("Hello World")
-     * Option.of("Hello World").orNull();
-     *
-     * // = null
-     * Option.none().orNull();
-     * }</pre>
-     *
-     * @return this value if it is defined, or {@code null} if it is empty.
-     */
-    public final T orNull() {
-        return isEmpty() ? null : get();
-    }
-
-    /**
-     * Returns the value if this is a {@code Some}, otherwise {@code supplier.get()} is returned.
-     * <p>
-     * Please note, that the alternate value is lazily evaluated.
-     *
-     * <pre>{@code
-     * Supplier<Double> supplier = () -> 5.342;
-     *
-     * // = 1.2
-     * Option.of(1.2).getOrElse(supplier);
-     *
-     * // = 5.342
-     * Option.none().getOrElse(supplier);
-     * }</pre>
-     *
-     * @param supplier An alternative value supplier
-     * @return This value, if this Option is defined or the {@code other} value, if this Option is empty.
-     */
-    @Override
-    public final T getOrElse(Supplier<? extends T> supplier) {
-        Objects.requireNonNull(supplier, "supplier is null");
-        return isEmpty() ? supplier.get() : get();
-    }
-
-    /**
      * Returns the value if this is a {@code Some}, otherwise throws an exception.
      *
      * <pre>{@code
@@ -491,7 +480,6 @@ public abstract class Option<T> implements Iterable<T>, io.vavr.Value<T>, Serial
      * @return This value, if this Option is defined, otherwise throws X
      * @throws X a throwable
      */
-    @Override
     public final <X extends Throwable> T getOrElseThrow(Supplier<X> exceptionSupplier) throws X {
         Objects.requireNonNull(exceptionSupplier, "exceptionSupplier is null");
         if (isEmpty()) {
@@ -499,6 +487,16 @@ public abstract class Option<T> implements Iterable<T>, io.vavr.Value<T>, Serial
         } else {
             return get();
         }
+    }
+
+    /**
+     * Returns the underlying value if present, otherwise {@code null}.
+     *
+     * @return A value of type {@code T} or {@code null}.
+     * @deprecated will be removed from io.vavr.collection should be used by single-valued types only. Use getOrElse(null) instead.
+     */
+    public T getOrNull() {
+        return isEmpty() ? null : get();
     }
 
     /**
@@ -594,7 +592,6 @@ public abstract class Option<T> implements Iterable<T>, io.vavr.Value<T>, Serial
      * @param <U>    The new value type
      * @return a new {@code Some} containing the mapped value if this Option is defined, otherwise {@code None}, if this is empty.
      */
-    @Override
     public final <U> Option<U> map(Function<? super T, ? extends U> mapper) {
         Objects.requireNonNull(mapper, "mapper is null");
         return isEmpty() ? none() : some(mapper.apply(get()));
@@ -667,9 +664,240 @@ public abstract class Option<T> implements Iterable<T>, io.vavr.Value<T>, Serial
         return f.apply(this);
     }
 
-    @Override
-    public final Iterator<T> iterator() {
-        return isEmpty() ? Iterator.empty() : Iterator.of(get());
+    /**
+     * Converts this to a {@link CompletableFuture}
+     *
+     * @return A new {@link CompletableFuture} containing the value
+     */
+    public CompletableFuture<T> toCompletableFuture() {
+        final CompletableFuture<T> completableFuture = new CompletableFuture<>();
+        Try.of(this::get)
+                .onSuccess(completableFuture::complete)
+                .onFailure(completableFuture::completeExceptionally);
+        return completableFuture;
+    }
+
+    /**
+     * Converts this to a {@link Validation}.
+     *
+     * @param <U>   value type of a {@code Valid}
+     * @param value An instance of a {@code Valid} value
+     * @return A new {@link Validation.Valid} containing the given {@code value} if this is empty, otherwise
+     * a new {@link Validation.Invalid} containing this value.
+     * @deprecated Use {@link #toValidation(Object)} instead.
+     */
+    @Deprecated
+    public <U> Validation<T, U> toInvalid(U value) {
+        return isEmpty() ? Validation.valid(value) : Validation.invalid(get());
+    }
+
+    /**
+     * Converts this to a {@link Validation}.
+     *
+     * @param <U>           value type of a {@code Valid}
+     * @param valueSupplier A supplier of a {@code Valid} value
+     * @return A new {@link Validation.Valid} containing the result of {@code valueSupplier} if this is empty,
+     * otherwise a new {@link Validation.Invalid} containing this value.
+     * @throws NullPointerException if {@code valueSupplier} is null
+     * @deprecated Use {@link #toValidation(Supplier)} instead.
+     */
+    @Deprecated
+    public <U> Validation<T, U> toInvalid(Supplier<? extends U> valueSupplier) {
+        Objects.requireNonNull(valueSupplier, "valueSupplier is null");
+        return isEmpty() ? Validation.valid(valueSupplier.get()) : Validation.invalid(get());
+    }
+
+    /**
+     * Converts this to an {@link java.util.Optional}.
+     *
+     * <pre>{@code
+     * // = Optional.empty
+     * Future.of(() -> { throw new Error(); })
+     *       .toJavaOptional()
+     *
+     * // = Optional[ok]
+     * Try.of(() -> "ok")
+     *     .toJavaOptional()
+     *
+     * // = Optional[1]
+     * List.of(1, 2, 3)
+     *     .toJavaOptional()
+     * }</pre>
+     *
+     * @return A new {@link java.util.Optional}.
+     */
+    public Optional<T> toJavaOptional() {
+        return isEmpty() ? Optional.empty() : Optional.ofNullable(get());
+    }
+
+    /**
+     * Converts this to a {@link Either}.
+     *
+     * @param <R>   right type
+     * @param right An instance of a right value
+     * @return A new {@link Either.Right} containing the value of {@code right} if this is empty, otherwise
+     * a new {@link Either.Left} containing this value.
+     * @deprecated Use {@link #toEither(Object)} instead.
+     */
+    @Deprecated
+    public <R> Either<T, R> toLeft(R right) {
+        return isEmpty() ? Either.right(right) : Either.left(get());
+    }
+
+    /**
+     * Converts this to a {@link Either}.
+     *
+     * @param <R>   right type
+     * @param right A supplier of a right value
+     * @return A new {@link Either.Right} containing the result of {@code right} if this is empty, otherwise
+     * a new {@link Either.Left} containing this value.
+     * @throws NullPointerException if {@code right} is null
+     * @deprecated Use {@link #toEither(Supplier)} instead.
+     */
+    @Deprecated
+    public <R> Either<T, R> toLeft(Supplier<? extends R> right) {
+        Objects.requireNonNull(right, "right is null");
+        return isEmpty() ? Either.right(right.get()) : Either.left(get());
+    }
+
+    /**
+     * Converts this to an {@link Either}.
+     *
+     * @param left A left value for the {@link Either}
+     * @param <L>  Either left component type
+     * @return A new {@link Either}.
+     * @deprecated will be moved to single-valued types
+     */
+    @Deprecated
+    public <L> Either<L, T> toEither(L left) {
+        return isEmpty() ? Either.left(left) : Either.right(get());
+    }
+
+    /**
+     * Converts this to an {@link Either}.
+     *
+     * @param leftSupplier A {@link Supplier} for the left value for the {@link Either}
+     * @param <L>          Validation error component type
+     * @return A new {@link Either}.
+     * @deprecated will be moved to single-valued types
+     */
+    @Deprecated
+    public <L> Either<L, T> toEither(Supplier<? extends L> leftSupplier) {
+        Objects.requireNonNull(leftSupplier, "leftSupplier is null");
+        return isEmpty() ? Either.left(leftSupplier.get()) : Either.right(get());
+    }
+
+    /**
+     * Converts this to an {@link Validation}.
+     *
+     * @param invalid An invalid value for the {@link Validation}
+     * @param <E>     Validation error component type
+     * @return A new {@link Validation}.
+     */
+    public <E> Validation<E, T> toValidation(E invalid) {
+        return isEmpty() ? Validation.invalid(invalid) : Validation.valid(get());
+    }
+
+    /**
+     * Converts this to an {@link Validation}.
+     *
+     * @param invalidSupplier A {@link Supplier} for the invalid value for the {@link Validation}
+     * @param <E>             Validation error component type
+     * @return A new {@link Validation}.
+     */
+    public <E> Validation<E, T> toValidation(Supplier<? extends E> invalidSupplier) {
+        Objects.requireNonNull(invalidSupplier, "invalidSupplier is null");
+        return isEmpty() ? Validation.invalid(invalidSupplier.get()) : Validation.valid(get());
+    }
+
+    /**
+     * Converts this to a {@link Either}.
+     *
+     * @param <L>  left type
+     * @param left An instance of a left value
+     * @return A new {@link Either.Left} containing the value of {@code left} if this is empty, otherwise
+     * a new {@link Either.Right} containing this value.
+     * @deprecated Use {@link #toEither(Object)} instead.
+     */
+    @Deprecated
+    public <L> Either<L, T> toRight(L left) {
+        return isEmpty() ? Either.left(left) : Either.right(get());
+    }
+
+    /**
+     * Converts this to a {@link Either}.
+     *
+     * @param <L>  left type
+     * @param left A supplier of a left value
+     * @return A new {@link Either.Left} containing the result of {@code left} if this is empty, otherwise
+     * a new {@link Either.Right} containing this value.
+     * @throws NullPointerException if {@code left} is null
+     * @deprecated Use {@link #toEither(Supplier)} instead.
+     */
+    @Deprecated
+    public <L> Either<L, T> toRight(Supplier<? extends L> left) {
+        Objects.requireNonNull(left, "left is null");
+        return isEmpty() ? Either.left(left.get()) : Either.right(get());
+    }
+
+    /**
+     * Converts this to a {@link Try}.
+     * <p>
+     * If this value is undefined, i.e. empty, then a new {@code Failure(NoSuchElementException)} is returned,
+     * otherwise a new {@code Success(value)} is returned.
+     *
+     * @return A new {@link Try}.
+     * @deprecated will be moved to single-valued types
+     */
+    @Deprecated
+    public Try<T> toTry() {
+        return Try.of(this::get);
+    }
+
+    /**
+     * Converts this to a {@link Try}.
+     * <p>
+     * If this value is undefined, i.e. empty, then a new {@code Failure(ifEmpty.get())} is returned,
+     * otherwise a new {@code Success(value)} is returned.
+     *
+     * @param ifEmpty an exception supplier
+     * @return A new {@link Try}.
+     * @deprecated will be moved to single-valued types
+     */
+    @Deprecated
+    public Try<T> toTry(Supplier<? extends Throwable> ifEmpty) {
+        Objects.requireNonNull(ifEmpty, "ifEmpty is null");
+        return isEmpty() ? Try.failure(ifEmpty.get()) : toTry();
+    }
+
+    /**
+     * Converts this to a {@link Validation}.
+     *
+     * @param <E>   error type of an {@code Invalid}
+     * @param error An error
+     * @return A new {@link Validation.Invalid} containing the given {@code error} if this is empty, otherwise
+     * a new {@link Validation.Valid} containing this value.
+     * @deprecated Use {@link #toValidation(Object)} instead.
+     */
+    @Deprecated
+    public <E> Validation<E, T> toValid(E error) {
+        return isEmpty() ? Validation.invalid(error) : Validation.valid(get());
+    }
+
+    /**
+     * Converts this to a {@link Validation}.
+     *
+     * @param <E>           error type of an {@code Invalid}
+     * @param errorSupplier A supplier of an error
+     * @return A new {@link Validation.Invalid} containing the result of {@code errorSupplier} if this is empty,
+     * otherwise a new {@link Validation.Valid} containing this value.
+     * @throws NullPointerException if {@code valueSupplier} is null
+     * @deprecated Use {@link #toValidation(Supplier)} instead.
+     */
+    @Deprecated
+    public <E> Validation<E, T> toValid(Supplier<? extends E> errorSupplier) {
+        Objects.requireNonNull(errorSupplier, "errorSupplier is null");
+        return isEmpty() ? Validation.invalid(errorSupplier.get()) : Validation.valid(get());
     }
 
     /**
